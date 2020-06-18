@@ -1,0 +1,319 @@
+-- Lua code. See documentation: https://api.tabletopsimulator.com/
+
+-- whether or not to print debug info to the console
+debug = true
+
+player_colors = {} --key (color) / value (vector) pair
+player_pawns = {} --key (color) / value (object) pair
+tiles_bag = nil
+
+
+function onLoad()
+    -- The onLoad event is called after the game save finishes loading.
+    msg("onLoad triggered")
+
+    -- https://api.tabletopsimulator.com/grid/
+    Grid.show_lines = true
+    Grid.type = 2 -- horizontal hexes
+    Grid.thick_lines = false
+    Grid.snapping = 3 -- center
+    Grid.sizeX = 4
+    Grid.sizeY = 4
+
+    -- snapPointList = Global.getSnapPoints()
+
+    -- https://api.tabletopsimulator.com/player-color/
+    player_colors["White"] = {1, 1, 1}
+    player_colors["Brown"] = {0.443, 0.231, 0.09}
+    player_colors["Red"] = {0.856, 0.1, 0.094}
+    player_colors["Orange"] = {0.956, 0.392, 0.113}
+    player_colors["Yellow"] = {0.905, 0.898, 0.172}
+    player_colors["Green"] = {0.192, 0.701, 0.168}
+    player_colors["Teal"] = {0.129, 0.694, 0.607}
+    player_colors["Blue"] = {0.118, 0.53, 1}
+    player_colors["Purple"] = {0.627, 0.125, 0.941}
+    player_colors["Pink"] = {0.96, 0.439, 0.807}
+
+    setupSideBoards()
+    createStartButton()
+    createPawns()
+    createSideBags()
+    createHexTiles()
+end
+
+function onUpdate()
+    -- The onUpdate event is called once per frame.
+    --no op
+end
+
+function msg(m)
+    if debug == true then
+        log(m)
+    end
+end
+
+function setupSideBoards()
+    local params = {}
+    -- https://berserk-games.com/knowledgebase/spawnable-objects/
+    params.type = "Chess_Board"
+    params.position = {60,3,0} --Vector –Optional. Defaults to {0, 3, 0}.
+    params.rotation = {180,0,0} --Optional. Defaults to {0, 0, 0}.
+    params.snap_to_grid = false --snap_to_grid –Optional. Should the spawned Objects snap to the grid if the grid is turned on? Defaults to false.
+    params.sound = false --Optional. Should the spawning object make a spawn sound. Defaults to true.
+
+    -- http://berserk-games.com/knowledgebase/api/#spawnObject
+    right_side_board = spawnObject(params)
+    -- https://api.tabletopsimulator.com/object/#scale
+    right_side_board.scale(2)
+    right_side_board.setLock(true)
+
+    params.position = {-60,3,0}
+    left_side_board = spawnObject(params)
+    left_side_board.scale(2)
+    left_side_board.setLock(true)
+
+    -- https://api.tabletopsimulator.com/texttool/
+    local lefttitle = spawnObject({
+        position = {x=-60, y=8, z=20},
+        type = "3DText"
+    })
+    lefttitle.TextTool.setFontSize(100)
+    lefttitle.TextTool.setValue("Zombie 10-4")
+    lefttitle.setLock(true)
+    local righttitle = spawnObject({
+        position = {x=60, y=8, z=20},
+        type = "3DText"
+    })
+    righttitle.TextTool.setFontSize(100)
+    righttitle.TextTool.setValue("Zombie 10-4")
+    righttitle.setLock(true)
+end
+
+function createStartButton()
+    local params = {}
+    -- https://berserk-games.com/knowledgebase/spawnable-objects/
+    params.type = "BlockSquare"
+    params.position = {-60,5,-5} --Vector –Optional. Defaults to {0, 3, 0}.
+    --params.rotation = Vector –Optional. Defaults to {0, 0, 0}.
+    --params.scale = Vector –Optional. Defaults to {1, 1, 1}.
+    --params.callback = string callback_function_name –Optional.
+    --params.callback_owner = Object callback_owner –Optional. Defaults to the Global Script.
+    params.snap_to_grid = false --snap_to_grid –Optional. Should the spawned Objects snap to the grid if the grid is turned on? Defaults to false.
+    --params.params = Table callback_parameters –Optional.
+    params.sound = false --Optional. Should the spawning object make a spawn sound. Defaults to true.
+
+    -- http://berserk-games.com/knowledgebase/api/#spawnObject
+    start_button = spawnObject(params)
+
+    -- https://api.tabletopsimulator.com/object/#createbutton
+    local params = {
+        click_function = "setupGameClicked",
+        function_owner = self,
+        label          = "Setup Game",
+        position       = {0, 1, 0},
+        rotation       = {0, 180, 0},
+        width          = 2400,
+        height         = 500,
+        font_size      = 400,
+        color          = {0.25, 0.25, 0.25},
+        font_color     = {1, 1, 1},
+        tooltip        = "Setup Game",
+    }
+
+    start_button.createButton(params)
+    msg("Finished creating button")
+end
+
+function setupGameClicked()
+    msg("Setup Game Clicked")
+
+    tiles_bag.shuffle()
+
+    -- put the player pawns in front of each player
+    for i, p in ipairs(Player.getPlayers()) do
+        sendObjectPlayerHand(player_pawns[p.color], p)
+    end
+
+    -- setup the hex tiles on the board
+    setupHexTiles()
+end
+
+function createPawns()
+    offset = 0
+    for color_name,color_vec in pairs(player_colors) do
+        local params = {}
+        -- https://berserk-games.com/knowledgebase/spawnable-objects/
+        params.type = "PlayerPawn"
+        params.position = {60,5,10-offset} --Vector –Optional. Defaults to {0, 3, 0}.
+        --params.rotation = Vector –Optional. Defaults to {0, 0, 0}.
+        --params.scale = Vector –Optional. Defaults to {1, 1, 1}.
+        --params.callback = string callback_function_name –Optional.
+        --params.callback_owner = Object callback_owner –Optional. Defaults to the Global Script.
+        params.snap_to_grid = false --snap_to_grid –Optional. Should the spawned Objects snap to the grid if the grid is turned on? Defaults to false.
+        --params.params = Table callback_parameters –Optional.
+        params.sound = false --Optional. Should the spawning object make a spawn sound. Defaults to true.
+
+        -- http://berserk-games.com/knowledgebase/api/#spawnObject
+        pawn = spawnObject(params)
+        -- https://api.tabletopsimulator.com/object/#set-functions
+        pawn.setColorTint(color_vec)
+        pawn.use_grid = false -- snap to grid
+        pawn.setName(color_name)
+        player_pawns[color_name] = pawn
+        offset = offset + 1.5
+    end
+end
+
+function createHexTiles()
+    local hex_scale = 1.95 -- slightly smaller than 2 so that they fit and can be flipped cleanly
+    local params = {}
+    -- https://api.tabletopsimulator.com/custom-game-objects/#custom-tile
+    params.type = "Custom_Tile"
+    params.snap_to_grid = true
+    params.sound = false
+
+    -- http://berserk-games.com/knowledgebase/api/#spawnObject
+    hex_hq = spawnObject(params)
+    hex_hq.setCustomObject({image = "http://cloud-3.steamusercontent.com/ugc/1190587545872382851/E5CFCCFA96DA1502744837E435223B65B7ADA7CF/",
+                            image_bottom = "http://cloud-3.steamusercontent.com/ugc/1190587545872382851/E5CFCCFA96DA1502744837E435223B65B7ADA7CF/",
+                            type = 1, -- hex
+                            stackable = false})
+    hex_hq.scale(hex_scale)
+    hex_hq.setName("HQ")
+    tiles_bag.putObject(hex_hq)
+
+    hex_hospital = spawnObject(params)
+    hex_hospital.setCustomObject({image = "http://cloud-3.steamusercontent.com/ugc/1266022971173740221/3708A8C7C36EA26D4CC846B240CF7630AFF24A4F/",
+                            image_bottom = "http://cloud-3.steamusercontent.com/ugc/1266022971173740541/FDA174511AB3764362B65F34DCECA3C22FCB6FE7/",
+                            type = 1, -- hex
+                            stackable = false})
+    hex_hospital.scale(hex_scale)
+    hex_hospital.setName("Hospital")
+    tiles_bag.putObject(hex_hospital)
+
+    hex_bio = spawnObject(params)
+    hex_bio.setCustomObject({image = "http://cloud-3.steamusercontent.com/ugc/1266022971173739474/6D611FA66FCBD4F0EE280990FFDF6930BF98419C/",
+                            image_bottom = "http://cloud-3.steamusercontent.com/ugc/1266022971173739769/2483220F060C80238637E025E2020C8C311CC71F/",
+                            type = 1, -- hex
+                            stackable = false})
+    hex_bio.scale(hex_scale)
+    hex_bio.setName("Bio Lab")
+    tiles_bag.putObject(hex_bio)
+
+    hex_airport = spawnObject(params)
+    hex_airport.setCustomObject({image = "http://cloud-3.steamusercontent.com/ugc/1266022971173738569/9222B817A056FCEFDA6DF864E3F225BAC634FA42/",
+                            image_bottom = "http://cloud-3.steamusercontent.com/ugc/1266022971173739173/359B3374143E64C603218F08CD067C15122CC329/",
+                            type = 1, -- hex
+                            stackable = false})
+    hex_airport.scale(hex_scale)
+    hex_airport.setName("Airport")
+    tiles_bag.putObject(hex_airport)
+    
+    hex_tv = spawnObject(params)
+    hex_tv.setCustomObject({image = "http://cloud-3.steamusercontent.com/ugc/1266022971173741779/1CC8237CE42D02F3C48610DC20D9A47AB005956C/",
+                            image_bottom = "http://cloud-3.steamusercontent.com/ugc/1266022971173742087/7A88502FF7A037FFF9CCA23AC8F0C3DEF1BE2DA6/",
+                            type = 1, -- hex
+                            stackable = false})
+    hex_tv.scale(hex_scale)
+    hex_tv.setName("TV Station")
+    tiles_bag.putObject(hex_tv)
+
+    hex_powerplant = spawnObject(params)
+    hex_powerplant.setCustomObject({image = "http://cloud-3.steamusercontent.com/ugc/1266022971173741020/E3CD1E17B9B308AB16C4BE7917AA0666ABC5D83C/",
+                            image_bottom = "http://cloud-3.steamusercontent.com/ugc/1266022971173741360/3470299BCCEB28D56EFC5B214E5655D52D4F6F47/",
+                            type = 1, -- hex
+                            stackable = false})
+    hex_powerplant.scale(hex_scale)
+    hex_powerplant.setName("Powerplant")
+    tiles_bag.putObject(hex_powerplant)
+
+    for i = 1, 60 do
+        grass = spawnObject(params)
+        grass.setCustomObject({image = "http://cloud-3.steamusercontent.com/ugc/1190587545872381726/3A3AD723B01EFF08A7C97B0FCC49D1E8EBA270DB/",
+                                image_bottom = "http://cloud-3.steamusercontent.com/ugc/1190587545872382537/A90ABDBBB329CC7E0489E4640AD7CD86C351C3AC/",
+                                type = 1, -- hex
+                                stackable = false})
+        grass.scale(hex_scale)
+        grass.setName("Grass")
+        tiles_bag.putObject(grass)
+    end
+
+    for i = 1, 24 do
+        water = spawnObject(params)
+        water.setCustomObject({image = "http://cloud-3.steamusercontent.com/ugc/1190587545872383182/A030B2AA764B3ECF7167AEDD5D4C72FAF1DEC5AC/",
+                                image_bottom = "http://cloud-3.steamusercontent.com/ugc/1190587545872383424/D93167B8635A80CE2876C025CC594F35CC56E711/",
+                                type = 1, -- hex
+                                stackable = false})
+        water.scale(hex_scale)
+        water.setName("Water")
+        tiles_bag.putObject(water)
+    end
+
+    for i = 1, 6 do
+        city = spawnObject(params)
+        city.setCustomObject({image = "http://cloud-3.steamusercontent.com/ugc/1190587545872527325/5749505005DCCDC8364A77FD8127CDA38C205EFB/",
+                                image_bottom = "http://cloud-3.steamusercontent.com/ugc/1190587545872527720/DBD01F5E55BD021FAC4EB7B6E6D903CA9E40E4DE/",
+                                type = 1, -- hex
+                                stackable = false})
+        city.scale(hex_scale)
+        city.setName("City")
+        tiles_bag.putObject(city)
+    end
+end
+
+function setupHexTiles()
+    if #tiles_bag.getObjects() != 0 then
+        xoffset = 0
+        extrazoffset = 0
+        for j = 1, 12 do
+            zoffset = 0
+            for i = 1, 8 do
+                local obj = tiles_bag.takeObject()
+                obj.setPositionSmooth({-18.35+xoffset, 4, -13.9+zoffset+extrazoffset})
+                obj.setRotationSmooth({0,180,0})
+                zoffset = zoffset + 3.7
+            end
+            if j % 2 == 0 then
+                extrazoffset = 0
+            else
+                extrazoffset = 2
+            end
+            xoffset = xoffset + 3.8
+        end
+    end
+end
+
+function createSideBags()
+    local params = {}
+    -- https://berserk-games.com/knowledgebase/spawnable-objects/
+    params.type = "Bag"
+    params.position = {-60,5,10}
+    params.snap_to_grid = false
+    params.sound = false
+
+    tiles_bag = spawnObject(params)
+    tiles_bag.use_grid = false -- snap to grid
+    tiles_bag.setLock(false)
+    tiles_bag.setName("Hex Tiles")
+end
+
+function sendObjectPlayerHand(obj, player)
+    -- adapted from:
+    -- https://steamcommunity.com/sharedfiles/filedetails/?id=791150113
+    local offset = 4
+    -- https://api.tabletopsimulator.com/player/#gethandtransform
+    local hand = player.getHandTransform()
+    local target = 
+        { hand.position.x + hand.forward.x * offset 
+        , hand.position.y + hand.forward.y * offset
+        , hand.position.z + hand.forward.z * offset
+        }
+ 
+    -- not really needed for the pawns but we'll keep it
+    obj.setPositionSmooth(target)
+    obj.setRotationSmooth(
+        {hand.rotation.x
+        , hand.rotation.y + 180 --make object look out from hand
+        , hand.rotation.z }
+    )
+end
