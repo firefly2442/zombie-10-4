@@ -8,6 +8,15 @@ communications.
 
 A digital version can be found on the Steam Workshop.
 
+## Building Rules PDF
+
+### Windows
+
+### Linux
+
+* `sudo apt install pandoc latex-beamer`
+* `./generate-rules-pdf.sh`
+
 ## License
 
 Copyright (C) 2020
