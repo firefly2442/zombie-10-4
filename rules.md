@@ -17,4 +17,15 @@
 
 Each player has a role.  The commander role is special
 in that it has different rules and victory conditions than
-the other players.  The subordinants take high level
+the other players.  The subordinants take high level orders
+from the commander but have autonomy over lower level
+decisions.
+
+Roles:
+
+* Commander
+  * Engineer
+  * Medical
+  * Recon
+  * Armored
+  * Special Ops

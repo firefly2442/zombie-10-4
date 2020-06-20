@@ -131,7 +131,10 @@ function setupGameClicked()
 
     -- put the player pawns in front of each player
     for i, p in ipairs(Player.getPlayers()) do
-        sendObjectPlayerHand(player_pawns[p.color], p)
+        -- make sure they have a playable color and are not a bystander
+        if player_colors[p.color] ~= nil then
+            sendObjectPlayerHand(player_pawns[p.color], p)
+        end
     end
 
     -- setup the hex tiles on the board
@@ -262,7 +265,7 @@ function createHexTiles()
 end
 
 function setupHexTiles()
-    if #tiles_bag.getObjects() != 0 then
+    if #tiles_bag.getObjects() > 0 then
         xoffset = 0
         extrazoffset = 0
         for j = 1, 12 do
