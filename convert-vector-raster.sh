@@ -4,5 +4,5 @@
 
 for file in ./vector/*.svg
 do
-     /usr/bin/inkscape -z -f "${file}" -w 640 -e ./vector/exported/"${file}.png"
+     /usr/bin/inkscape -z -f "${file}" -e ./vector/exported/$(basename "$file" .svg).png
 done
